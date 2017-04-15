@@ -1,0 +1,27 @@
+{
+  "name": "apiko-packer",
+  "version": "1.0.0",
+  "description": "A tool which makes it easier to deploy an Apiko version to NPM.",
+  "main": "index.js",
+  "dependencies": {
+    "babel-cli": "^6.24.1",
+    "cheerio": "^0.22.0",
+    "recursive-copy": "^2.0.6",
+    "request": "^2.81.0",
+    "rimraf": "^2.6.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apiko-rest-api/apiko-packer.git"
+  },
+  "author": "Miroslav Kaspar",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/apiko-rest-api/apiko-packer/issues"
+  },
+  "homepage": "https://github.com/apiko-rest-api/apiko-packer#readme"
+}
