@@ -7,28 +7,62 @@ const request = require("request")
 const copy = require('recursive-copy')
 
 let packer = {
-  apikoPath: '',
-  uiPath: '',
+  apikoPath: 'apiko',
+  uiPath: 'apiko-ui',
   packagePath: './package',
   newVersion: '',
   oldVersion: '',
 
   async pack () {
+    await this.updateApikoAndUi()
+    await this.updateUiModules()
+    await this.buildUi()
     await this.preparePackageDirectory()
     await this.transpileApiko()
     await this.getCurrentlyPublicVersion()
     await this.preparePackageJson()
-    await this.buildUi()
     await this.integrateUi()
     await this.additionalProcessing()
     await this.done()
   },
 
+  updateApikoAndUi () {
+    return new Promise((resolve, reject) => {
+      console.log('[PACKER] Updating Apiko and Apiko UI...')
+
+      let npm = exec('git submodule update --init --recursive')
+      npm.stdout.pipe(process.stdout)
+      npm.stderr.pipe(process.stderr)
+
+      npm.on('close', (code) => {
+        resolve()
+      })
+    })
+  },
+
+  updateUiModules () {
+    return new Promise((resolve, reject) => {
+      console.log('[PACKER] Updating UI NPM modules...')
+
+      let thisPath = process.cwd()
+      process.chdir(path.normalize(packer.uiPath))
+
+      let npm = exec('npm i')
+      npm.stdout.pipe(process.stdout)
+      npm.stderr.pipe(process.stderr)
+
+      npm.on('close', (code) => {
+        process.chdir(path.normalize(thisPath))
+        resolve()
+      })
+    })
+  },
+
   preparePackageDirectory () {
     return new Promise((resolve, reject) => {
-      console.log('Checking if package directory exists and wiping in case...')
+      console.log('[PACKER] Checking if package directory exists and wiping in case...')
       rimraf(packer.packagePath, () => {
-        console.log('Creating the package directory...')
+        console.log('[PACKER] Creating the package directory...')
         fs.mkdirSync(packer.packagePath)
         resolve()
       })
@@ -37,7 +71,7 @@ let packer = {
 
   transpileApiko () {
     return new Promise((resolve, reject) => {
-      console.log('Transpiling Apiko...')
+      console.log('[PACKER] Transpiling Apiko...')
 
       let babel1 = exec(path.normalize('babel ' + packer.apikoPath + '/src --out-dir ' + packer.packagePath + '/src'))
       babel1.stdout.pipe(process.stdout)
@@ -57,7 +91,7 @@ let packer = {
 
   getCurrentlyPublicVersion () {
     return new Promise((resolve, reject) => {
-      console.log('Getting Apiko\'s currently public version...')
+      console.log('[PACKER] Getting Apiko\'s current public version number...')
 
       request({ uri: 'https://www.npmjs.com/package/apiko' }, (error, response, body) => {
         let page = cheerio.load(body)
@@ -69,7 +103,7 @@ let packer = {
 
   preparePackageJson () {
     return new Promise((resolve, reject) => {
-      console.log('Preparing package JSON...')
+      console.log('[PACKER] Preparing package JSON...')
 
       let oldV = packer.oldVersion.split('.')
 
@@ -79,7 +113,7 @@ let packer = {
         if (newV[0] <= oldV[0]) {
           if (newV[1] <= oldV[1]) {
             if (newV[2] <= oldV[2]) {
-              console.log('The specified version is lower or equal to the currently published version.')
+              console.log('[PACKER] The specified version is lower or equal to the currently published version.')
               process.exit(1)
             }
           }
@@ -89,7 +123,7 @@ let packer = {
         packer.newVersion = oldV.join('.')
       }
 
-      console.log('New version will be:', packer.newVersion)
+      console.log('[PACKER] New version will be:', packer.newVersion)
 
       let contents = fs.readFileSync(path.normalize(packer.apikoPath + '/package.json'))
       contents = JSON.parse(contents)
@@ -102,7 +136,7 @@ let packer = {
 
   buildUi () {
     return new Promise((resolve, reject) => {
-      console.log('Building Apiko UI...')
+      console.log('[PACKER] Building Apiko UI...')
 
       let thisPath = process.cwd()
       process.chdir(path.normalize(packer.uiPath))
@@ -120,20 +154,20 @@ let packer = {
 
   integrateUi () {
     return new Promise((resolve, reject) => {
-      console.log('Integrating Apiko UI...')
+      console.log('[PACKER] Integrating Apiko UI...')
 
       copy(path.normalize(packer.uiPath + '/dist'), path.normalize(packer.packagePath + '/devui')).then((results) => {
         resolve()
       })
       .catch((error) => {
-        console.error('Copy failed: ' + error)
+        console.error('[PACKER] Copy failed: ' + error)
       })
     })
   },
 
   additionalProcessing () {
     return new Promise((resolve, reject) => {
-      console.log('Adding license and README...')
+      console.log('[PACKER] Adding license and README...')
 
       fs.createReadStream(path.normalize(packer.apikoPath + '/LICENSE'))
       .pipe(fs.createWriteStream(path.normalize(packer.packagePath + '/LICENSE')))
@@ -147,28 +181,16 @@ let packer = {
 
   done () {
     return new Promise((resolve, reject) => {
-      console.log("Finished. Now login to NPM ('npm login'), go to the 'package' directory and run 'npm publish'.")
+      console.log("[PACKER] Finished. Now login to NPM ('npm login'), go to the 'package' directory and run 'npm publish'.")
       resolve()
     })
   },
 }
 
-if (process.argv[2] && process.argv[3]) {
-  if (!fs.existsSync(process.argv[2])) {
-    console.log('The Apiko (server) directory seems to not exist.')
-    process.exit(1)
-  }
-
-  if (!fs.existsSync(process.argv[3])) {
-    console.log('The Apiko UI directory seems to not exist.')
-    process.exit(1)
-  }
-
-  packer.apikoPath = process.argv[2]
-  packer.uiPath = process.argv[3]
-  packer.newVersion = process.argv[4]
+if (process.argv[2] != 'help') {
+  packer.newVersion = process.argv[2]
   packer.pack()
 } else {
   console.log('Usage:')
-  console.log('node index <apiko_directory> <apiko_ui_directory> [new_version]')
+  console.log('node index [new_version]')
 }
