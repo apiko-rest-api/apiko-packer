@@ -1,0 +1,6 @@
+[submodule "apiko"]
+	path = apiko
+	url = https://github.com/apiko-rest-api/apiko
+[submodule "apiko-ui"]
+	path = apiko-ui
+	url = https://github.com/apiko-rest-api/apiko-ui
